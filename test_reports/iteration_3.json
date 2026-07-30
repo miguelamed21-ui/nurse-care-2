@@ -1,0 +1,45 @@
+{
+  "summary": "Validated RBAC Phase 1 (Groups + Assignments) backend. Added 12 new pytest cases for /api/users, /api/groups CRUD and /api/assignments (directed/random/individual/group flows + RBAC negatives). Also fixed 4 pre-existing simulation/eval tests that started failing because the new RBAC blocks students from starting simulations without an assignment — updated tests to seed an assignment first. Full suite: 38/38 PASS. Frontend UI is gated by real Google OAuth and cannot be exercised via Playwright; verified SPA loads (200) and /api/groups returns 401 unauthenticated. RBAC client logic for /groups and /assignments verified by source: pages redirect students to /dashboard with toast.error after fetching, but client-side firing of /api/users?role=student before the role check returns 403 toast noise — minor UX issue documented below.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/simulations/start", "issue": "When student lacks an assignment, both unassigned existing case AND a non-existent case return 403 (instead of 404 for non-existent). Slightly inconsistent semantics; not blocking."},
+      {"endpoint": "POST /api/assignments (random)", "issue": "case_id is allowed to be omitted/None for random mode; OK. But response model still serialises case_id as null — frontend should handle this."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {"flow": "Groups.js / Assignments.js initial load", "issue": "Promise.all fires /api/groups, /api/users?role=student, /api/assignments BEFORE checking user.role. A student that lands on /groups or /assignments triggers 403 API errors that briefly surface in console + the api interceptor may show error toasts before the role-based redirect happens.", "affected_selectors": ["api.get('/groups')", "api.get('/users?role=student')", "api.get('/assignments')"]}
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_amed_api.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "Frontend: move the role gate (user.role === 'student' -> redirect) BEFORE the api.get(...) calls in Groups.js (~lines 35-45) and Assignments.js (~lines 52-63) to avoid 403 noise.",
+    "Backend: POST /api/simulations/start could distinguish 'case not found' (404) from 'no access to case' (403). Today an unauthorised student gets 403 even for a non-existent case_id.",
+    "Self-test (main agent) via real Google login: (1) create group, (2) assign case directed and random, (3) login as student and verify only assigned cases visible in CaseLibrary, (4) verify student blocked from /groups and /assignments routes."
+  ],
+  "critical_code_review_comments": [
+    "server.py is now 1968 lines — overdue for splitting into routers (auth, groups, assignments, simulations, evaluations).",
+    "create_assignment trusts assignment_type='group' but does not verify that all students in random_filters / target group actually exist; could leave dangling assignments referencing deleted users.",
+    "delete_group cascades only group assignments but not individual assignments referencing students whose group is deleted (by design, but worth confirming). Conversely, deleting a user does NOT cascade-clean their assignments or student_ids array in groups — orphans accumulate.",
+    "start_simulation rewrites start_req.case_id in place for random assignments (line 962). Acceptable but mutates a Pydantic request model; safer to use a local var.",
+    "RBAC check in start_simulation uses a complex $and/$or query that will match a random pending assignment for ANY case the student starts — i.e. a student who has any random assignment can effectively start a simulation for any case_id they pass, because the second $or branch ({'assignment_mode': 'random', 'status': 'pending'}) does not constrain case_id. This is a real authorization bypass risk worth fixing.",
+    "Frontend Groups.js / Assignments.js do not gate by role until AFTER the data fetch; pre-check user.role on mount.",
+    "/api/users (line 367) does not paginate (.to_list(1000)) — fine now, but mark for future."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_amed_api.py (added 12 RBAC tests; updated 4 sim/eval tests to seed an assignment so student can start simulations under the new RBAC)"
+  ],
+  "success_rate": {"backend": "100% (38/38)", "frontend": "Not exercisable via Playwright (real Google OAuth gate); static load + unauth API status verified"},
+  "test_credentials": "Tests inject TEST_ users + session tokens directly into MongoDB (per /app/auth_testing.md). Real Google accounts in /app/memory/test_credentials.md unused by automated tests.",
+  "seed_data_creation": "All tests create transient TEST_ users / sessions / groups / assignments / cases and clean up on teardown. No persistent seed data created.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "RBAC Phase 1 endpoints fully covered in /app/backend/tests/test_amed_api.py. Helpers: _grant_assignment(student_token, case_id) seeds a directed individual assignment so the existing student fixture can start simulations under the new RBAC. New tests live below the comment '====== RBAC Phase 1: Groups & Assignments'. Pre-existing flaky LLM streaming test is now stable (assignment seeding made it deterministic). Frontend UI cannot be exercised via Playwright due to real Google OAuth — main agent must self-test the protected routes (/groups, /assignments, /case-library) after login.",
+  "rca_of_the_issue": "Pre-existing sim/eval tests began failing because RBAC Phase 1 added a hard check at POST /api/simulations/start that requires students to have a matching case_assignments document. The fix is purely at the test layer: seed a directed assignment for the student fixture before calling /simulations/start, then clean it up after. No backend bug — the RBAC is working as designed. The discovered authorization concern (random-mode assignment lets a student start ANY case) is a separate, real backend issue flagged in critical_code_review_comments."
+}

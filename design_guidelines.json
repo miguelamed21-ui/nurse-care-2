@@ -1,0 +1,104 @@
+{
+  "brand": {
+    "name": "AMED IA",
+    "description": "Intelligent platform for nursing professionals using Generative AI for clinical and community simulations."
+  },
+  "theme": {
+    "mode": "light",
+    "archetype": "Archetype 1: Organic & Earthy (Clinical Trust Variant)",
+    "rationale": "Medical and educational tools require trust, clarity, and calm. We avoid the typical 'cold hospital blue' and instead use grounded, organic tones (Warm Bone, Deep Slate, Clay) that feel human-centric and empathetic, crucial for community nursing."
+  },
+  "typography": {
+    "primary_heading": "Manrope",
+    "secondary_body": "IBM Plex Sans",
+    "rules": {
+      "h1": "text-4xl sm:text-5xl tracking-tighter font-semibold text-slate-900",
+      "h2": "text-2xl sm:text-3xl tracking-tight font-medium text-slate-800",
+      "h3": "text-xl sm:text-2xl font-medium text-slate-800",
+      "h4": "text-lg sm:text-xl font-medium text-slate-700",
+      "body": "text-base leading-relaxed text-slate-600",
+      "small_labels": "text-xs tracking-[0.2em] uppercase font-semibold text-slate-500"
+    }
+  },
+  "colors": {
+    "background": {
+      "app": "bg-[#F9F9F6]",
+      "sidebar": "bg-[#F0F1ED]",
+      "surface": "bg-[#FFFFFF]"
+    },
+    "text": {
+      "primary": "text-[#1A2530]",
+      "secondary": "text-[#4A5568]",
+      "muted": "text-[#718096]"
+    },
+    "brand": {
+      "primary": "bg-[#1A2B3C] text-white hover:bg-[#121E2A]",
+      "accent": "bg-[#C47055] text-white hover:bg-[#A85D45]",
+      "success": "bg-[#E6F0E9] text-[#2D5A3F]",
+      "warning": "bg-[#FDF1E6] text-[#9C5A23]"
+    },
+    "borders": "border-[#E2E8F0]"
+  },
+  "layout_and_spacing": {
+    "philosophy": "Generous Spacing & Control Room Density. Dashboards use tight bento grids, while learning spaces breathe.",
+    "container_padding": "p-6 md:p-8 lg:p-12",
+    "card_padding": "p-6",
+    "grid_dashboard": "grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6 items-start",
+    "grid_simulation": "grid grid-cols-1 lg:grid-cols-12 gap-8 items-start"
+  },
+  "surface_strategies": {
+    "cards": "Flat solid background (bg-white), 1px subtle border (border-slate-200), NO default shadow. On hover: shadow-sm and -translate-y-[2px].",
+    "chat_interface": "No chat bubbles. Editor-style conversation stream. Left border colors to differentiate AI vs Student.",
+    "headers": "Solid background (bg-white) with a hard 1px bottom border to separate from content. No glassmorphism in clinical tools to prevent visual refraction."
+  },
+  "components_instructions": {
+    "buttons": "Rounded-md (radius 6px). Primary actions use Brand Accent (#C47055). Secondary actions use Outline. Provide clear focus rings.",
+    "inputs": "Shadcn defaults customized with 1px border, flat white background, subtle focus ring (ring-[#1A2B3C]).",
+    "tables": "Shadcn tables. High data density. Use alternating row colors for readability if rows exceed 10.",
+    "charts": "Shadcn/Recharts. Use monochromatic scales of Deep Slate for IDEC metrics, and Warm Clay for PICE progression to maintain elegant palette.",
+    "simulation_chat": "Three-pane layout: Left (Patient Vitals/Context 3 cols), Center (Chat Stream 6 cols), Right (Live Competency/Rubric 3 cols)."
+  },
+  "motion_and_interaction": {
+    "hover_states": "All interactive elements must change state. Buttons darken. Cards lift slightly.",
+    "transitions": "transition-all duration-200 ease-in-out",
+    "loading": "Use skeleton screens (animate-pulse) with the surface color slightly darkened. Avoid generic spinners for heavy data."
+  },
+  "icons": {
+    "library": "@phosphor-icons/react",
+    "installation": "yarn add @phosphor-icons/react",
+    "style": "Duotone or Regular weight depending on context. Keep uniform."
+  },
+  "media_assets": {
+    "logos": {
+      "university_logo": "https://images.unsplash.com/photo-1771349634632-1246e9518773?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NTYxNzV8MHwxfHNlYXJjaHwxfHxtZWRpY2FsJTIwdW5pdmVyc2l0eSUyMGxvZ298ZW58MHx8fHwxNzgwOTcxNTY5fDA&ixlib=rb-4.1.0&q=85",
+      "description": "Medical university emblem for dashboard header"
+    },
+    "backgrounds": {
+      "hospital_hallway": "https://images.unsplash.com/photo-1719934398679-d764c1410770?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDQ2MzR8MHwxfHNlYXJjaHwxfHxtb2Rlcm4lMjBob3NwaXRhbCUyMGJhY2tncm91bmR8ZW58MHx8fHwxNzgwOTcxNTY5fDA&ixlib=rb-4.1.0&q=85",
+      "description": "Clean, bright, modern hospital background for login or landing page hero."
+    },
+    "simulation_context": {
+      "patient_bed": "https://images.unsplash.com/photo-1550792436-181701c71f63?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1MDV8MHwxfHNlYXJjaHwxfHxudXJzaW5nJTIwc3R1ZGVudCUyMGNsaW5pY2FsJTIwc2ltdWxhdGlvbnxlbnwwfHx8fDE3ODA5NzE1Njl8MA&ixlib=rb-4.1.0&q=85",
+      "patient_vitals": "https://images.unsplash.com/photo-1621926185752-9b8e0111c147?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1MDV8MHwxfHNlYXJjaHwzfHxudXJzaW5nJTIwc3R1ZGVudCUyMGNsaW5pY2FsJTIwc2ltdWxhdGlvbnxlbnwwfHx8fDE3ODA5NzE1Njl8MA&ixlib=rb-4.1.0&q=85",
+      "description": "Used as contextual thumbnails inside the clinical simulation patient profiles."
+    }
+  },
+  "testing_attributes": {
+    "rule": "All interactive and key informational elements MUST include a data-testid attribute.",
+    "convention": "kebab-case, role-based",
+    "examples": [
+      "data-testid='login-submit-button'",
+      "data-testid='simulation-chat-input'",
+      "data-testid='idec-metric-card'"
+    ]
+  },
+  "instructions_to_main_agent": [
+    "Use Javascript (.js) for all React files, not TypeScript (.tsx).",
+    "Follow the layout grid strategies strictly. Use bento-grid for the dashboards.",
+    "Use Shadcn components for complex interactions (Tables, Select, Dialogs) but strip Vercel-look borders and apply our flat surface strategy.",
+    "Implement Recharts for IDEC and PICE metrics.",
+    "Do NOT use typical message bubbles for the AI chat. Use a seamless, full-width stream where messages are separated by padding and subtle borders, similar to an IDE terminal or Notion document.",
+    "Integrate Phosphor icons as the primary icon set.",
+    "All interactive elements and metrics MUST use data-testid attributes."
+  ]
+}

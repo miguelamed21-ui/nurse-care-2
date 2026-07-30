@@ -1,0 +1,27 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.15, pytest-9.0.3, pluggy-1.6.0 -- /root/.venv/bin/python
+cachedir: .pytest_cache
+rootdir: /app/backend
+plugins: anyio-4.13.0
+collecting ... collected 17 items
+
+tests/test_amed_api.py::test_root PASSED                                 [  5%]
+tests/test_amed_api.py::test_health PASSED                               [ 11%]
+tests/test_amed_api.py::test_auth_me_no_token PASSED                     [ 17%]
+tests/test_amed_api.py::test_auth_me_invalid_token PASSED                [ 23%]
+tests/test_amed_api.py::test_auth_me_valid_student PASSED                [ 29%]
+tests/test_amed_api.py::test_auth_session_invalid_id PASSED              [ 35%]
+tests/test_amed_api.py::test_cases_requires_auth PASSED                  [ 41%]
+tests/test_amed_api.py::test_cases_list_student PASSED                   [ 47%]
+tests/test_amed_api.py::test_case_detail PASSED                          [ 52%]
+tests/test_amed_api.py::test_case_create_student_forbidden PASSED        [ 58%]
+tests/test_amed_api.py::test_case_create_teacher_ok PASSED               [ 64%]
+tests/test_amed_api.py::test_simulation_start_and_list PASSED            [ 70%]
+tests/test_amed_api.py::test_simulation_start_invalid_case PASSED        [ 76%]
+tests/test_amed_api.py::test_simulation_chat_streams PASSED              [ 82%]
+tests/test_amed_api.py::test_dashboard_stats PASSED                      [ 88%]
+tests/test_amed_api.py::test_dashboard_competencies PASSED               [ 94%]
+tests/test_amed_api.py::test_dashboard_trends PASSED                     [100%]
+
+----------- generated xml file: /app/test_reports/pytest_results.xml -----------
+============================== 17 passed in 8.38s ==============================

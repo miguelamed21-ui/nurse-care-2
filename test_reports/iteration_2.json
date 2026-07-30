@@ -1,0 +1,39 @@
+{
+  "summary": "Tested new case-evaluation flow (manual evaluation + user evaluation count). Added 9 new pytest cases covering POST /api/evaluations/manual and GET /api/evaluations/user/{user_id}/count — all 9 pass. Full suite: 25/26 pass (1 pre-existing flaky LLM streaming test, unrelated). Frontend code wiring for the new flow verified by source inspection and unauthenticated route check (auth-gated by real Google OAuth so the form UI itself cannot be exercised by Playwright).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/simulations/{sim_id}/chat", "issue": "Pre-existing: SSE stream occasionally does not signal done within 60s on slow LLM responses. Flaky, not related to current feature."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_amed_api.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "Main agent should self-test end-to-end via real Google login: (1) start sim, (2) click Finalizar Simulación, (3) confirm redirect to /case-evaluation/:sim_id, (4) fill 5 competencies × 1 nivel, (5) submit and verify evaluation persists, (6) open Global Evaluations and verify button enables only after >=1 CASO evaluation exists.",
+    "Confirm only teachers/admins see the rubric form (CaseEvaluation page should restrict or hide for students — current backend already returns 403 for non-teacher POSTs, but frontend should also hide or warn).",
+    "Optional: harden streaming chat endpoint test timing (independent of this feature)."
+  ],
+  "critical_code_review_comments": [
+    "POST /api/evaluations/manual trusts user_id and case_id from the request body — should default these from the sim_doc to prevent a teacher from accidentally (or maliciously) writing an evaluation against a different user/case than the simulation actually belongs to.",
+    "Manual evaluation does not validate that scores contain exactly the 5 expected competency keys nor that values fall within the cuartil set [12.5, 37.5, 62.5, 87.5]. Add Pydantic validation/enums to mirror the frontend rubric.",
+    "evaluated_by field is a free-text string client-supplies — should derive from authenticated user.name / user.user_id for auditability.",
+    "server.py still >1400 lines — split into routers (evaluations, simulations, dashboard) for maintainability.",
+    "Frontend CaseEvaluation page is not gated by role on the client — students who somehow reach the URL would see the rubric (they would still get 403 on submit, but UX-wise it should redirect)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_amed_api.py (appended 9 tests for manual evaluation + evaluation count)"
+  ],
+  "success_rate": {"backend": "100% on new endpoints (9/9); 96% overall (25/26, 1 unrelated flaky)", "frontend": "Login + redirect verified; rubric form UI not exercisable due to Google OAuth gate"},
+  "test_credentials": "Real Google OAuth via Emergent — no scriptable credentials. Tests inject session tokens directly into MongoDB.",
+  "seed_data_creation": "Tests create transient TEST_ users, sessions, simulations, evaluations and clean up on teardown.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "New endpoints fully covered: 9 tests under test_amed_api.py. Helpers: _start_and_end_sim(student_token), _manual_payload(...). Pre-existing flaky test: test_simulation_chat_streams. Frontend: /case-evaluation/:sim_id route exists; CaseEvaluation.js uses 5 competencies × 4 niveles (12.5/37.5/62.5/87.5); GlobalEvaluations disables global generation button when case_evaluations_count===0. Cannot exercise authenticated UI flows via Playwright — main agent must self-test via real Google login."
+}
