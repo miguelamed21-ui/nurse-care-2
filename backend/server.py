@@ -3,7 +3,7 @@ from fastapi.responses import StreamingResponse
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
-import os
+#import os
 import logging
 from pathlib import Path
 from pydantic import BaseModel, Field, ConfigDict
@@ -11,7 +11,9 @@ from typing import List, Optional, Dict, Any
 import uuid
 from datetime import datetime, timezone, timedelta
 import httpx
-from emergentintegrations.llm.chat import LlmChat, UserMessage, TextDelta, StreamDone
+from llm_client import hf_client, LLM_MODEL, chat_completion
+from openai import AsyncOpenAI
+#from emergentintegrations.llm.chat import LlmChat, UserMessage, TextDelta, StreamDone
 import json
 import base64
 import shutil
@@ -47,7 +49,7 @@ load_dotenv(ROOT_DIR / '.env')
 # Environment variables
 mongo_url = os.environ['MONGO_URL']
 db_name = os.environ['DB_NAME']
-EMERGENT_LLM_KEY = os.environ.get('EMERGENT_LLM_KEY', '')
+#EMERGENT_LLM_KEY = os.environ.get('EMERGENT_LLM_KEY', '')
 
 # MongoDB connection
 client = AsyncIOMotorClient(mongo_url)
