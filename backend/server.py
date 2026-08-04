@@ -856,46 +856,45 @@ async def get_my_assigned_cases(request: Request):
 async def generate_case(request: Request, gen_req: GenerateCaseRequest):
     """Generate a clinical case using AI"""
     user = await get_current_user(request)
-    
+
     if user.role not in ["teacher", "admin"]:
         raise HTTPException(status_code=403, detail="Only teachers can generate cases")
-    
+
     try:
-        # Use Claude to generate a case
-        chat = LlmChat(
-            api_key=EMERGENT_LLM_KEY,
-            session_id=f"casegen_{uuid.uuid4().hex[:8]}",
-            system_message=f"""Eres un experto en educación de enfermería. 
-Genera un caso clínico realista en español para la especialidad: {gen_req.specialty}, 
+        system_prompt = f"""Eres un experto en educación de enfermería.
+Genera un caso clínico realista en español para la especialidad: {gen_req.specialty},
 nivel de dificultad: {gen_req.difficulty}.
 {f'Enfocado en: {gen_req.focus_area}' if gen_req.focus_area else ''}
 
 Devuelve un JSON con esta estructura:
 {{
-  "title": "Título del caso",
-  "scenario": "Descripción detallada del escenario clínico",
-  "patient_profile": {{
-    "name": "Nombre del paciente",
-    "age": edad,
-    "gender": "género",
-    "chief_complaint": "Motivo de consulta",
-    "vital_signs": {{"hr": 80, "bp": "120/80", "temp": 36.5, "rr": 16, "spo2": 98}},
-    "medical_history": ["antecedente 1", "antecedente 2"]
-  }},
-  "learning_objectives": ["objetivo 1", "objetivo 2", "objetivo 3"]
+ "title": "Título del caso",
+ "scenario": "Descripción detallada del escenario clínico",
+ "patient_profile": {{
+ "name": "Nombre del paciente",
+ "age": edad,
+ "gender": "género",
+ "chief_complaint": "Motivo de consulta",
+ "vital_signs": {{"hr": 80, "bp": "120/80", "temp": 36.5, "rr": 16, "spo2": 98}},
+ "medical_history": ["antecedente 1", "antecedente 2"]
+ }},
+ "learning_objectives": ["objetivo 1", "objetivo 2", "objetivo 3"]
 }}"""
-        ).with_model("anthropic", "claude-sonnet-4-6")
-        
-        response = await chat.send_message(UserMessage(text="Genera el caso clínico"))
-        
+
+        response_text = await chat_completion(
+            system_message=system_prompt,
+            user_message="Genera el caso clínico",
+            session_id=f"casegen_{uuid.uuid4().hex[:8]}"
+        )
+
         # Parse JSON from response
         import re
-        json_match = re.search(r'\{[\s\S]*\}', response.content)
+        json_match = re.search(r'\{[\s\S]*\}', response_text)
         if not json_match:
             raise HTTPException(status_code=500, detail="Failed to generate case")
-        
+
         case_data = json.loads(json_match.group())
-        
+
         # Create case
         case_id = f"case_{uuid.uuid4().hex[:12]}"
         case_doc = {
@@ -909,17 +908,15 @@ Devuelve un JSON con esta estructura:
             "created_by": user.user_id,
             "created_at": datetime.now(timezone.utc).isoformat()
         }
-        
+
         await db.clinical_cases.insert_one(case_doc)
-        
+
         case_doc['created_at'] = datetime.fromisoformat(case_doc['created_at'])
         return ClinicalCase(**case_doc)
-    
+
     except Exception as e:
         logger.error(f"Case generation error: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to generate case: {str(e)}")
-
-# ========== SIMULATION ROUTES ==========
 
 @api_router.post("/simulations/start", response_model=Simulation)
 async def start_simulation(request: Request, start_req: StartSimulationRequest):
@@ -1032,28 +1029,28 @@ async def start_simulation(request: Request, start_req: StartSimulationRequest):
 async def chat_simulation(request: Request, sim_id: str, msg: ChatMessage):
     """Stream chat response from AI participant (SSE) - supports team simulations"""
     user = await get_current_user(request)
-    
+
     # Get simulation
     sim_doc = await db.simulations.find_one({"sim_id": sim_id}, {"_id": 0})
     if not sim_doc:
         raise HTTPException(status_code=404, detail="Simulation not found")
-    
+
     if sim_doc["user_id"] != user.user_id:
         raise HTTPException(status_code=403, detail="Not your simulation")
-    
+
     # Get case
     case_doc = await db.clinical_cases.find_one({"case_id": sim_doc["case_id"]}, {"_id": 0})
-    
+
     # Build conversation history
     conversation = sim_doc.get("conversation", [])
-    
+
     # Determine which participant to interact with
     simulation_type = case_doc.get("simulation_type", "individual")
-    
+
     if simulation_type == "equipo_interdisciplinario":
         # Team simulation - determine participant
         team_members = case_doc.get("team_members", [])
-        
+
         if not msg.target_participant:
             # If no participant specified, default to first team member
             if not team_members:
@@ -1061,23 +1058,23 @@ async def chat_simulation(request: Request, sim_id: str, msg: ChatMessage):
             target_participant = team_members[0]["role"]
         else:
             target_participant = msg.target_participant
-        
+
         # Find team member info
         participant_info = next((m for m in team_members if m["role"] == target_participant), None)
-        
+
         if not participant_info:
             available_roles = [m["role"] for m in team_members]
             raise HTTPException(
-                status_code=400, 
+                status_code=400,
                 detail=f"Participant '{target_participant}' not found in team. Available roles: {', '.join(available_roles)}"
             )
-        
+
         participant_name = participant_info["name"]
         participant_specialty = participant_info.get("specialty", "")
         participant_description = participant_info.get("description", "")
-        
+
         patient_context = json.dumps(case_doc["patient_profile"], ensure_ascii=False, indent=2)
-        
+
         system_prompt = f"""Eres {participant_name}, {participant_specialty} en una simulación de equipo interdisciplinario.
 
 Escenario: {case_doc['scenario']}
@@ -1096,14 +1093,14 @@ Instrucciones:
 - Muestra profesionalismo y trabajo en equipo
 - Si te preguntan algo fuera de tu área, sugiere consultar con otro miembro del equipo
 - Usa lenguaje técnico apropiado pero comprensible"""
-        
+
         role_identifier = target_participant
-        
+
     else:
         # Individual simulation - patient only
         participant_name = case_doc["patient_profile"]["name"]
         patient_context = json.dumps(case_doc["patient_profile"], ensure_ascii=False, indent=2)
-        
+
         system_prompt = f"""Eres {participant_name}, un paciente virtual en una simulación clínica de enfermería.
 
 Escenario: {case_doc['scenario']}
@@ -1119,48 +1116,54 @@ Instrucciones:
 - Usa lenguaje natural, como hablaría un paciente real
 - Si el estudiante pregunta algo que no sabes, di que no lo sabes
 - Mantén coherencia con tu perfil médico"""
-        
+
         role_identifier = "paciente"
-    
-    chat = LlmChat(
-        api_key=EMERGENT_LLM_KEY,
-        session_id=f"{sim_id}_{role_identifier}",
-        system_message=system_prompt
-    ).with_model("anthropic", "claude-sonnet-4-6")
-    
-    # Add conversation history for this specific participant
-    for turn in conversation:
-        if turn["role"] == "student":
-            chat.messages.append({"role": "user", "content": turn["content"]})
-        elif turn["role"] == role_identifier:
-            chat.messages.append({"role": "assistant", "content": turn["content"]})
-    
+
+    # ========== NUEVO EVENT GENERATOR CON HF CLIENT ==========
     async def event_generator():
         full_response = ""
         try:
-            async for event in chat.stream_message(UserMessage(text=msg.message)):
-                if isinstance(event, TextDelta):
-                    full_response += event.content
-                    yield f"data: {json.dumps({'content': event.content, 'participant': role_identifier})}\n\n"
-                elif isinstance(event, StreamDone):
-                    # Save conversation
-                    conversation.append({"role": "student", "content": msg.message, "target": role_identifier})
-                    conversation.append({"role": role_identifier, "content": full_response})
-                    
-                    await db.simulations.update_one(
-                        {"sim_id": sim_id},
-                        {"$set": {
-                            "conversation": conversation,
-                            "current_participant": role_identifier
-                        }}
-                    )
-                    
-                    yield f"data: {json.dumps({'done': True, 'participant': role_identifier})}\n\n"
-                    break
+            messages = [
+                {"role": "system", "content": system_prompt},
+            ]
+            # Add conversation history for this specific participant
+            for turn in conversation:
+                if turn["role"] == "student":
+                    messages.append({"role": "user", "content": turn["content"]})
+                elif turn["role"] == role_identifier:
+                    messages.append({"role": "assistant", "content": turn["content"]})
+
+            messages.append({"role": "user", "content": msg.message})
+
+            stream = await hf_client.chat.completions.create(
+                model=LLM_MODEL,
+                messages=messages,
+                stream=True,
+            )
+
+            async for chunk in stream:
+                delta = chunk.choices[0].delta.content or ""
+                full_response += delta
+                yield f"data: {json.dumps({'content': delta, 'participant': role_identifier})}\n\n"
+
+            # Save conversation
+            conversation.append({"role": "student", "content": msg.message, "target": role_identifier})
+            conversation.append({"role": role_identifier, "content": full_response})
+
+            await db.simulations.update_one(
+                {"sim_id": sim_id},
+                {"$set": {
+                    "conversation": conversation,
+                    "current_participant": role_identifier
+                }}
+            )
+
+            yield f"data: {json.dumps({'done': True, 'participant': role_identifier})}\n\n"
+
         except Exception as e:
             logger.error(f"Chat error: {e}")
             yield f"data: {json.dumps({'error': str(e)})}\n\n"
-    
+
     return StreamingResponse(
         event_generator(),
         media_type="text/event-stream",
@@ -1236,32 +1239,32 @@ async def get_simulation(request: Request, sim_id: str):
 async def generate_evaluation(request: Request, sim_id: str):
     """Generate evaluation and feedback for a simulation"""
     user = await get_current_user(request)
-    
+
     # Get simulation
     sim_doc = await db.simulations.find_one({"sim_id": sim_id}, {"_id": 0})
     if not sim_doc:
         raise HTTPException(status_code=404, detail="Simulation not found")
-    
+
     if sim_doc["user_id"] != user.user_id and user.role not in ["teacher", "admin"]:
         raise HTTPException(status_code=403, detail="Not authorized")
-    
+
     # Check if already evaluated
     existing_eval = await db.evaluations.find_one({"sim_id": sim_id}, {"_id": 0})
     if existing_eval:
         if isinstance(existing_eval['evaluated_at'], str):
             existing_eval['evaluated_at'] = datetime.fromisoformat(existing_eval['evaluated_at'])
         return Evaluation(**existing_eval)
-    
+
     # Get case
     case_doc = await db.clinical_cases.find_one({"case_id": sim_doc["case_id"]}, {"_id": 0})
-    
+
     # Generate evaluation using AI
     try:
         conversation_text = "\n".join([
             f"{turn['role'].upper()}: {turn['content']}"
             for turn in sim_doc.get("conversation", [])
         ])
-        
+
         eval_prompt = f"""Evalúa el desempeño del estudiante de enfermería en esta simulación clínica.
 
 Caso: {case_doc['title']}
@@ -1273,35 +1276,32 @@ Conversación:
 
 Genera una evaluación en formato JSON con:
 {{
-  "scores": {{
-    "comunicacion": 0-100,
-    "valoracion_clinica": 0-100,
-    "razonamiento_critico": 0-100,
-    "competencia_tecnica": 0-100,
-    "empatia": 0-100
-  }},
-  "strengths": ["fortaleza 1", "fortaleza 2"],
-  "improvements": ["área de mejora 1", "área de mejora 2"],
-  "feedback": "Retroalimentación detallada y constructiva"
+ "scores": {{
+ "comunicacion": 0-100,
+ "valoracion_clinica": 0-100,
+ "razonamiento_critico": 0-100,
+ "competencia_tecnica": 0-100,
+ "empatia": 0-100
+ }},
+ "strengths": ["fortaleza 1", "fortaleza 2"],
+ "improvements": ["área de mejora 1", "área de mejora 2"],
+ "feedback": "Retroalimentación detallada y constructiva"
 }}"""
-        
-        chat = LlmChat(
-            api_key=EMERGENT_LLM_KEY,
-            session_id=f"eval_{uuid.uuid4().hex[:8]}",
-            system_message="Eres un docente experto en enfermería que evalúa de forma justa y constructiva."
-        ).with_model("anthropic", "claude-sonnet-4-6")
-        
-        response = await chat.send_message(UserMessage(text=eval_prompt))
-        
+
+        response_text = await chat_completion(
+            system_message="Eres un docente experto en enfermería que evalúa de forma justa y constructiva.",
+            user_message=eval_prompt,
+            session_id=f"eval_{uuid.uuid4().hex[:8]}"
+        )
+
         # Parse JSON - response is the text content directly
         import re
-        response_text = response if isinstance(response, str) else response.content
         json_match = re.search(r'\{[\s\S]*\}', response_text)
         if not json_match:
             raise HTTPException(status_code=500, detail="Failed to generate evaluation")
-        
+
         eval_data = json.loads(json_match.group())
-        
+
         # Create evaluation
         eval_id = f"eval_{uuid.uuid4().hex[:12]}"
         eval_doc = {
@@ -1314,15 +1314,15 @@ Genera una evaluación en formato JSON con:
             "improvements": eval_data["improvements"],
             "evaluated_at": datetime.now(timezone.utc).isoformat()
         }
-        
+
         await db.evaluations.insert_one(eval_doc)
-        
+
         # Update competency profile
         await update_competency_profile(sim_doc["user_id"], eval_data["scores"])
-        
+
         eval_doc['evaluated_at'] = datetime.fromisoformat(eval_doc['evaluated_at'])
         return Evaluation(**eval_doc)
-    
+
     except Exception as e:
         logger.error(f"Evaluation generation error: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to generate evaluation: {str(e)}")
